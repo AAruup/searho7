@@ -1,0 +1,14 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.tools/
+.npm-cache/
+.sandbox-run/
+.env*
+!.env.example
+python-ai/.venv/
+__pycache__/
+*.pyc

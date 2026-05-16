@@ -1,0 +1,19 @@
+{
+  "name": "sea-rho7-functions",
+  "private": true,
+  "type": "commonjs",
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "scripts": {
+    "lint": "node -c index.js",
+    "serve": "firebase emulators:start --only functions",
+    "deploy": "firebase deploy --only functions"
+  },
+  "dependencies": {
+    "@google/genai": "^1.29.0",
+    "firebase-admin": "^13.0.0",
+    "firebase-functions": "^6.0.1"
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores profile information for students and teachers.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["student", "teacher", "admin"] },
+        "schoolName": { "type": "string" },
+        "collegeName": { "type": "string" },
+        "idCardURL": { "type": "string" },
+        "isVerified": { "type": "boolean" },
+        "bio": { "type": "string" },
+        "isTeacher": { "type": "boolean" },
+        "teacherSubject": { "type": "string" },
+        "teacherFee": { "type": "number" },
+        "isOnline": { "type": "boolean" },
+        "lastSeen": { "type": "string", "format": "date-time" },
+        "earnings": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "role"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Represents a chat message in the community or a specific room.",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderPhoto": { "type": "string" },
+        "roomId": { "type": "string" },
+        "hasAiResponded": { "type": "boolean" },
+        "grounding": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["text", "senderId", "roomId"]
+    },
+    "Project": {
+      "title": "Project",
+      "description": "A student project shared for discussion.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "studentPhoto": { "type": "string" },
+        "status": { "type": "string", "enum": ["In Progress", "Review", "Completed"] },
+        "likes": { "type": "number" },
+        "tags": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "studentId", "status"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "A specific task within a project.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "desc": { "type": "string" },
+        "status": { "type": "string", "enum": ["todo", "in-progress", "review", "done"] },
+        "priority": { "type": "string", "enum": ["low", "medium", "high"] },
+        "assignee": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "status", "priority"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Information about users."
+    },
+    "/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Global or specific chat messages."
+    },
+    "/projects/{projectId}": {
+      "schema": "Project",
+      "description": "Shared student projects."
+    },
+    "/projects/{projectId}/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Tasks associated with a project."
+    }
+  }
+}

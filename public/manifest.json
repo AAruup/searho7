@@ -1,0 +1,9 @@
+{
+  "short_name": "SEA.RHO7",
+  "name": "SEA.RHO7 Neural Interface",
+  "icons": [],
+  "start_url": "./",
+  "display": "standalone",
+  "theme_color": "#020617",
+  "background_color": "#020617"
+}

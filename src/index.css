@@ -1,0 +1,113 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --font-sans: "Inter", "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  --color-saffron-50: #fff9eb;
+  --color-saffron-100: #ffeed1;
+  --color-saffron-200: #ffd9a3;
+  --color-saffron-300: #ffbc6b;
+  --color-saffron-400: #ff9438;
+  --color-saffron-500: #ff7412;
+  --color-saffron-600: #f25607;
+  --color-saffron-700: #c94008;
+  --color-saffron-800: #a0330f;
+  --color-saffron-900: #812c10;
+  --color-saffron-950: #461405;
+
+  --color-vision-blue-50: #eff6ff;
+  --color-vision-blue-100: #dbeafe;
+  --color-vision-blue-200: #bfdbfe;
+  --color-vision-blue-300: #93c5fd;
+  --color-vision-blue-400: #60a5fa;
+  --color-vision-blue-500: #3b82f6;
+  --color-vision-blue-600: #2563eb;
+  --color-vision-blue-700: #1d4ed8;
+  --color-vision-blue-800: #1e40af;
+  --color-vision-blue-900: #1e3a8a;
+  --color-vision-blue-950: #172554;
+}
+
+:root {
+  --bg: #031027;
+  --fg: #f8fafc;
+  --accent: #ff7412;
+  --line: rgba(37, 99, 235, 0.22);
+  --surface: #071a3a;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+  @apply selection:bg-saffron-500/30 selection:text-white;
+}
+
+.technical-grid {
+  background-image: 
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.glass-panel {
+  background: rgba(7, 26, 58, 0.76);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--line);
+  @apply border-vision-blue-800/60;
+}
+
+.premium-gradient {
+  @apply bg-gradient-to-br from-vision-blue-600 via-vision-blue-700 to-saffron-600 shadow-[0_0_30px_rgba(37,99,235,0.2)];
+}
+
+.premium-text-gradient {
+  @apply bg-gradient-to-r from-vision-blue-300 via-white to-saffron-400 bg-clip-text text-transparent font-black;
+}
+
+.data-row {
+  border-bottom: 1px solid var(--line);
+  transition: all 0.2s ease;
+}
+
+.data-row:hover {
+  background: rgba(37, 99, 235, 0.14);
+}
+
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+.scanline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(37, 99, 235, 0.2), rgba(255, 116, 18, 0.2), transparent);
+  animation: scanline 4s linear infinite;
+  pointer-events: none;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.3);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.5), rgba(255, 116, 18, 0.5));
+  border-radius: 99px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.75), rgba(255, 116, 18, 0.75));
+}
