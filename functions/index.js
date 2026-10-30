@@ -2,6 +2,7 @@ const { GoogleGenAI } = require("@google/genai");
 const admin = require("firebase-admin");
 const { defineSecret } = require("firebase-functions/params");
 const { onRequest } = require("firebase-functions/v2/https");
+const { agenticApi, agenticWorker } = require("./agentic");
 
 admin.initializeApp();
 
@@ -13,6 +14,7 @@ const dailySignedInLimit = 50;
 const dailyGuestLimit = 15;
 
 const allowedOrigins = new Set([
+  "https://searho7.ninthcoreai.in",
   "https://searho7.web.app",
   "https://searho7.firebaseapp.com",
   "http://localhost:3000",
@@ -242,3 +244,6 @@ exports.api = onRequest(
     }
   }
 );
+
+exports.agenticApi = agenticApi;
+exports.agenticWorker = agenticWorker;
