@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Activity, Pause, Play, Plus, ShieldAlert, Square, Target } from 'lucide-react';
-import firebaseConfig from '../../firebase-applet-config.json';
+import firebaseConfig from '../../../firebase-applet-config.json';
 import { auth } from '../../lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 type Goal = {
   id: string;
@@ -56,9 +57,21 @@ export const ProactiveAgentPanel: React.FC = () => {
   }, [request]);
 
   useEffect(() => {
-    void refresh();
-    const timer = window.setInterval(() => { void refresh(); }, 30000);
-    return () => window.clearInterval(timer);
+    let timer: number | undefined;
+    const unsubscribe = onAuthStateChanged(auth, user => {
+      if (!user) {
+        setGoals([]);
+        if (timer !== undefined) window.clearInterval(timer);
+        return;
+      }
+      void refresh();
+      if (timer !== undefined) window.clearInterval(timer);
+      timer = window.setInterval(() => { void refresh(); }, 30000);
+    });
+    return () => {
+      unsubscribe();
+      if (timer !== undefined) window.clearInterval(timer);
+    };
   }, [refresh]);
 
   const createGoal = async () => {
