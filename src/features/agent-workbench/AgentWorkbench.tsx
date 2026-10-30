@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { askSeaRho7 } from '../../services/assistantGateway';
+import { ProactiveAgentPanel } from './ProactiveAgentPanel';
 
 type AgentMode = 'architect' | 'builder' | 'debugger' | 'reviewer';
 
@@ -283,6 +284,7 @@ export const AgentWorkbench: React.FC = () => {
 
   return (
     <div className="min-h-[calc(100vh-6rem)] space-y-6 pb-10">
+      <ProactiveAgentPanel />
       <section className="grid grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)_360px] gap-4">
         <aside className="border border-vision-blue-900/70 bg-slate-950/80 rounded-lg overflow-hidden">
           <div className="h-14 px-4 flex items-center justify-between border-b border-vision-blue-900/70 bg-vision-blue-950/50">
