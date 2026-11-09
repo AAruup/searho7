@@ -1,28 +1,74 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isSignedIn() {
+    function signedIn() {
       return request.auth != null;
     }
 
+    function owns(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isGlobalRoom(roomId) {
+      return roomId in [
+        'global', 'academic-general', 'coding-lab', 'math-physics',
+        'geography-history', 'medical-support', 'ai-tutor-hub'
+      ];
+    }
+
+    function canAccessRoom(roomId) {
+      return signedIn() && (
+        isGlobalRoom(roomId) ||
+        (roomId is string &&
+          roomId.matches('^dm_[^_]+_[^_]+$') &&
+          (
+            roomId.matches('^dm_' + request.auth.uid + '_[^_]+$') ||
+            roomId.matches('^dm_[^_]+_' + request.auth.uid + '$')
+          ))
+      );
+    }
+
+    function validMessage(data) {
+      return data.roomId is string &&
+        data.text is string &&
+        data.text.size() > 0 &&
+        data.text.size() <= 5000 &&
+        data.createdAt == request.time;
+    }
+
     match /users/{userId} {
-      allow read: if isSignedIn();
-      allow create, update: if isSignedIn() && request.auth.uid == userId;
+      allow get: if owns(userId);
+      // No listing private user profiles; use a separate publicProfiles collection
+      // with an explicit opt-in schema for future social discovery.
+      allow list: if false;
+      allow create: if owns(userId) && request.resource.data.uid == userId;
+      allow update: if owns(userId) &&
+        request.resource.data.uid == resource.data.uid &&
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['role', 'isTeacher', 'idCardURL']);
       allow delete: if false;
     }
 
     match /messages/{messageId} {
-      allow read, create, update: if isSignedIn();
-      allow delete: if false;
+      allow read: if canAccessRoom(resource.data.roomId);
+      allow create: if canAccessRoom(request.resource.data.roomId) &&
+        validMessage(request.resource.data) &&
+        request.resource.data.keys().hasAll(['authorId', 'authorName']) &&
+        (
+          (request.resource.data.authorId == request.auth.uid) ||
+          (request.resource.data.senderId == request.auth.uid)
+        ) &&
+        request.resource.data.authorId != 'gemini-ai';
+      // Client-side AI author spoofing and cross-user edits are disabled.
+      // Responses must be created by the trusted server Admin SDK.
+      allow update, delete: if false;
     }
 
     match /projects/{projectId} {
-      allow read, create, update: if isSignedIn();
-      allow delete: if false;
-
+      // Existing shared project hub does not have per-owner IDs; block until migrated.
+      allow read, write: if false;
       match /tasks/{taskId} {
-        allow read, create, update: if isSignedIn();
-        allow delete: if false;
+        allow read, write: if false;
       }
     }
 
