@@ -266,12 +266,12 @@ export const Academy: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="p-6 bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-3xl text-center">
-              <p className="text-2xl font-black text-vision-blue-400 italic">2.4k+</p>
-              <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Active Students</p>
+              <p className="text-2xl font-black text-vision-blue-400 italic">Pilot</p>
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Student enrollment</p>
             </div>
             <div className="p-6 bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-3xl text-center">
-              <p className="text-2xl font-black text-saffron-500 italic">150+</p>
-              <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Freelance Tutors</p>
+              <p className="text-2xl font-black text-saffron-500 italic">Soon</p>
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Verified tutors</p>
             </div>
           </div>
         </div>
