@@ -56,7 +56,7 @@ export const Chat: React.FC = () => {
       id: `local-ai-${Date.now()}`,
       text: createHelpfulLocalAnswer(text),
       authorId: 'gemini-ai',
-      authorName: 'SEA.RHO7',
+      authorName: 'SEA.RHO7 Local Helper',
       roomId: activeRoom,
       hasAiResponded: true,
       timestamp: now
@@ -74,10 +74,10 @@ export const Chat: React.FC = () => {
 
   // Sync Messages from Firestore
   useEffect(() => {
-    if (useLocalResponses) {
+    if (useLocalResponses || !currentUser) {
       setMessages([{
         id: `local-welcome-${activeRoom}`,
-        text: `SEA.RHO7 chat is ready in #${activeRoom}. Ask a study question, coding problem, Firebase issue, app idea, or lyrics prompt.`,
+        text: `Local helper mode (not live AI). Ask a question in #${activeRoom}.`,
         authorId: 'gemini-ai',
         authorName: 'SEA.RHO7',
         roomId: activeRoom,
@@ -88,9 +88,8 @@ export const Chat: React.FC = () => {
     }
 
     const q = query(
-      collection(db, 'messages'),
-      where('roomId', '==', activeRoom),
-      orderBy('createdAt', 'asc'),
+      collection(db, 'users', currentUser!.uid, 'messages'),
+      orderBy('createdAt', 'desc'),
       limit(100)
     );
 
@@ -99,7 +98,7 @@ export const Chat: React.FC = () => {
         id: doc.id,
         ...doc.data(),
         timestamp: doc.data().createdAt?.toDate()?.toISOString() || new Date().toISOString()
-      } as ChatMessage));
+      } as ChatMessage)).filter(msg => msg.roomId === activeRoom).reverse();
       setMessages(msgs);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'messages');
@@ -107,12 +106,12 @@ export const Chat: React.FC = () => {
     });
 
     return () => unsubscribe();
-  }, [activeRoom, useLocalResponses]);
+  }, [activeRoom, useLocalResponses, currentUser?.uid]);
 
   // AI Response Logic
   useEffect(() => {
     const processAiResponse = async () => {
-      if (useLocalResponses) return;
+      if (useLocalResponses || !currentUser) return;
       if (isAiGenerating || messages.length === 0) return;
 
       const lastMsg = messages[messages.length - 1];
@@ -122,11 +121,11 @@ export const Chat: React.FC = () => {
         setIsAiGenerating(true);
         try {
           // Mark as responded in Firestore
-          await updateDoc(doc(db, 'messages', lastMsg.id), {
+          await updateDoc(doc(db, 'users', currentUser.uid, 'messages', lastMsg.id), {
             hasAiResponded: true
           });
 
-          let systemPersona = "This is a shared student chat. Answer the user's request directly first. If they ask to teach or explain, give a clear lesson, example, and practice question. If they send a short acknowledgement like ok or yes, reply warmly and ask what they want to solve next.";
+          let systemPersona = "This is a private learning chat. Answer the user's request directly first. If they ask to teach or explain, give a clear lesson, example, and practice question. If they send a short acknowledgement like ok or yes, reply warmly and ask what they want to solve next.";
           if (activeRoom === 'coding-lab') systemPersona += " You are an expert software engineer. Provide clean, efficient code and technical explanations.";
           if (activeRoom === 'math-physics') systemPersona += " You are a PhD mathematician and physicist. Solve equations step-by-step and explain theories clearly.";
           if (activeRoom === 'geography-history') systemPersona += " You are a world-class historian and geographer. Provide rich context, coordinates, and historical significance.";
@@ -143,12 +142,13 @@ export const Chat: React.FC = () => {
           const fullText = result.text.trim();
           
           if (fullText) {
-            await addDoc(collection(db, 'messages'), {
+            await addDoc(collection(db, 'users', currentUser.uid, 'messages'), {
               text: fullText,
               authorId: 'gemini-ai',
-              authorName: 'SEA.RHO7',
+              authorName: result.source === 'local' ? 'SEA.RHO7 Local Helper' : 'SEA.RHO7 AI',
               roomId: activeRoom,
               hasAiResponded: true,
+              source: result.source,
               grounding: result.grounding || null,
               createdAt: serverTimestamp()
             });
@@ -159,7 +159,7 @@ export const Chat: React.FC = () => {
           const userFriendlyMsg = `Local helper response:\n\n${createHelpfulLocalAnswer(lastMsg.text)}\n\nLive Gemini did not answer. Check Settings > AI Soul > Test AI Connection.`;
           
           setStreamingMessage(userFriendlyMsg);
-          await addDoc(collection(db, 'messages'), {
+          await addDoc(collection(db, 'users', currentUser.uid, 'messages'), {
             text: userFriendlyMsg,
             authorId: 'gemini-ai',
             authorName: 'SEA.RHO7',
@@ -225,7 +225,7 @@ export const Chat: React.FC = () => {
     }
     
     try {
-      await addDoc(collection(db, 'messages'), {
+      await addDoc(collection(db, 'users', currentUser.uid, 'messages'), {
         text: textToSend,
         authorId: currentUser.uid,
         authorName: currentUser.displayName || 'System User',
@@ -359,7 +359,7 @@ export const Chat: React.FC = () => {
                 {activeRoom}
                 <Star className="w-3 h-3 text-saffron-500 fill-saffron-500" />
               </h2>
-              <p className="text-[8px] lg:text-[10px] font-mono text-slate-600 uppercase tracking-[0.4em] font-black">Shared help room</p>
+              <p className="text-[8px] lg:text-[10px] font-mono text-slate-600 uppercase tracking-[0.4em] font-black">Your private learning room</p>
             </div>
           </div>
           <div className="flex items-center gap-3 lg:gap-6 text-slate-600">
@@ -545,7 +545,7 @@ export const Chat: React.FC = () => {
                <span className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-saffron-500" /> HELPER_READY</span>
                <span className="flex items-center gap-2"><Lock className="w-3 h-3 text-saffron-600" /> GUEST_MODE</span>
             </div>
-            <span>Answers save in this session</span>
+            <span>{useLocalResponses ? 'Local helper — session only' : 'Private account history'}</span>
           </div>
         </div>
       </div>

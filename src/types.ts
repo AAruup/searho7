@@ -47,6 +47,7 @@ export interface ChatMessage {
   roomId: string;
   hasAiResponded?: boolean;
   grounding?: any;
+  source?: 'firebase-ai' | 'backend' | 'browser-gemini' | 'local';
 }
 
 export interface Project {
