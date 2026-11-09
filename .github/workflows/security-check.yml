@@ -24,6 +24,8 @@ jobs:
         run: npm ci
       - name: Typecheck
         run: npm run lint
+      - name: Production bundle build
+        run: npm run build
       - name: Install security test utilities (CI only)
         run: npm install --no-save --package-lock=false @firebase/rules-unit-testing@5.0.2 firebase-tools@14
       - name: Firestore Emulator privacy tests
