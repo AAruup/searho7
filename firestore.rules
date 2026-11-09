@@ -1,79 +1,70 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() {
-      return request.auth != null;
+    function owner(uid) { return request.auth != null && request.auth.uid == uid; }
+    function newProfile(uid) {
+      return request.resource.data.uid == uid &&
+        request.resource.data.role == 'student' &&
+        request.resource.data.keys().hasOnly([
+          'uid', 'role', 'email', 'displayName', 'photoURL', 'agentName',
+          'schoolName', 'collegeName', 'isOnline', 'lastSeen',
+          'createdAt', 'updatedAt', 'preferences'
+        ]);
     }
-
-    function owns(userId) {
-      return signedIn() && request.auth.uid == userId;
+    function profileUpdate(uid) {
+      return resource.data.uid == uid &&
+        request.resource.data.uid == uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'displayName', 'photoURL', 'agentName', 'schoolName', 'collegeName',
+          'isOnline', 'lastSeen', 'updatedAt', 'preferences'
+        ]);
     }
-
-    function isGlobalRoom(roomId) {
-      return roomId in [
-        'global', 'academic-general', 'coding-lab', 'math-physics',
-        'geography-history', 'medical-support', 'ai-tutor-hub'
-      ];
+    function privateMessage(uid) {
+      return request.resource.data.keys().hasAll([
+          'text', 'authorId', 'authorName', 'roomId', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasOnly([
+          'text', 'authorId', 'authorName', 'roomId', 'createdAt',
+          'hasAiResponded', 'grounding', 'source'
+        ]) &&
+        request.resource.data.authorId in [uid, 'gemini-ai'] &&
+        request.resource.data.authorName is string &&
+        request.resource.data.roomId is string &&
+        request.resource.data.roomId.size() <= 100 &&
+        request.resource.data.text is string &&
+        request.resource.data.text.size() > 0 &&
+        request.resource.data.text.size() <= 10000 &&
+        request.resource.data.createdAt == request.time;
     }
-
-    function canAccessRoom(roomId) {
-      return signedIn() && (
-        isGlobalRoom(roomId) ||
-        (roomId is string &&
-          roomId.matches('^dm_[^_]+_[^_]+$') &&
-          (
-            roomId.matches('^dm_' + request.auth.uid + '_[^_]+$') ||
-            roomId.matches('^dm_[^_]+_' + request.auth.uid + '$')
-          ))
-      );
-    }
-
-    function validMessage(data) {
-      return data.roomId is string &&
-        data.text is string &&
-        data.text.size() > 0 &&
-        data.text.size() <= 5000 &&
-        data.createdAt == request.time;
-    }
-
-    match /users/{userId} {
-      allow get: if owns(userId);
-      // No listing private user profiles; use a separate publicProfiles collection
-      // with an explicit opt-in schema for future social discovery.
+    match /users/{uid} {
+      allow get: if owner(uid);
       allow list: if false;
-      allow create: if owns(userId) && request.resource.data.uid == userId;
-      allow update: if owns(userId) &&
-        request.resource.data.uid == resource.data.uid &&
-        !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['role', 'isTeacher', 'idCardURL']);
+      allow create: if owner(uid) && newProfile(uid);
+      allow update: if owner(uid) && profileUpdate(uid);
       allow delete: if false;
-    }
-
-    match /messages/{messageId} {
-      allow read: if canAccessRoom(resource.data.roomId);
-      allow create: if canAccessRoom(request.resource.data.roomId) &&
-        validMessage(request.resource.data) &&
-        request.resource.data.keys().hasAll(['authorId', 'authorName']) &&
-        (
-          (request.resource.data.authorId == request.auth.uid) ||
-          (request.resource.data.senderId == request.auth.uid)
-        ) &&
-        request.resource.data.authorId != 'gemini-ai';
-      // Client-side AI author spoofing and cross-user edits are disabled.
-      // Responses must be created by the trusted server Admin SDK.
-      allow update, delete: if false;
-    }
-
-    match /projects/{projectId} {
-      // Existing shared project hub does not have per-owner IDs; block until migrated.
-      allow read, write: if false;
-      match /tasks/{taskId} {
-        allow read, write: if false;
+      match /messages/{messageId} {
+        allow get, list: if owner(uid);
+        allow create: if owner(uid) && privateMessage(uid);
+        allow update: if owner(uid) &&
+          resource.data.authorId == uid &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['hasAiResponded']) &&
+          request.resource.data.hasAiResponded == true;
+        allow delete: if owner(uid);
+      }
+      match /projects/{projectId} {
+        allow read, write: if owner(uid);
+        match /tasks/{taskId} {
+          allow read, write: if owner(uid);
+        }
       }
     }
-
-    match /{document=**} {
+    // Legacy shared collections remain in Firestore until a reviewed migration.
+    match /messages/{messageId} { allow read, write: if false; }
+    match /projects/{projectId} {
       allow read, write: if false;
+      match /tasks/{taskId} { allow read, write: if false; }
     }
+    match /{document=**} { allow read, write: if false; }
   }
 }

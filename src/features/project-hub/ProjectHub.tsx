@@ -40,8 +40,12 @@ export const ProjectHub: React.FC = () => {
   const PROJECT_ID = 'default-hub';
 
   useEffect(() => {
+    if (!user || user.uid === 'local-agent') {
+      setTasks([]);
+      return;
+    }
     const q = query(
-      collection(db, 'projects', PROJECT_ID, 'tasks'),
+      collection(db, 'users', user.uid, 'projects', PROJECT_ID, 'tasks'),
       orderBy('createdAt', 'desc')
     );
 
@@ -54,7 +58,7 @@ export const ProjectHub: React.FC = () => {
     }, (error) => handleFirestoreError(error, OperationType.LIST, `projects/${PROJECT_ID}/tasks`));
 
     return () => unsubscribe();
-  }, []);
+  }, [user?.uid]);
 
   const columns: { id: TaskStatus; label: string }[] = [
     { id: 'todo', label: 'Backlog Core // 01' },
@@ -73,8 +77,9 @@ export const ProjectHub: React.FC = () => {
   };
 
   const moveTask = async (taskId: string, newStatus: TaskStatus) => {
+    if (!user || user.uid === 'local-agent') return;
     try {
-      const taskRef = doc(db, 'projects', PROJECT_ID, 'tasks', taskId);
+      const taskRef = doc(db, 'users', user.uid, 'projects', PROJECT_ID, 'tasks', taskId);
       await updateDoc(taskRef, { status: newStatus });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `projects/${PROJECT_ID}/tasks/${taskId}`);
@@ -82,12 +87,13 @@ export const ProjectHub: React.FC = () => {
   };
 
   const addTask = async () => {
+    if (!user || user.uid === 'local-agent') return;
     const title = prompt("Payload Title?");
     const desc = prompt("Mission Parameters?");
     if (!title) return;
 
     try {
-      await addDoc(collection(db, 'projects', PROJECT_ID, 'tasks'), {
+      await addDoc(collection(db, 'users', user.uid, 'projects', PROJECT_ID, 'tasks'), {
         title,
         desc: desc || '',
         status: 'todo',
@@ -99,6 +105,10 @@ export const ProjectHub: React.FC = () => {
       handleFirestoreError(error, OperationType.CREATE, `projects/${PROJECT_ID}/tasks`);
     }
   };
+
+  if (!user || user.uid === 'local-agent') {
+    return <div className="p-8 text-slate-300">Sign in to save projects privately to your account.</div>;
+  }
 
   return (
     <div className="space-y-10">

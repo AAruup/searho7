@@ -182,6 +182,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateProfile = async (updates: Partial<UserProfile>) => {
+    const restricted: (keyof UserProfile)[] = ['uid', 'email', 'role', 'isTeacher', 'idCardURL', 'teacherSubject', 'teacherFee', 'createdAt'];
+    if (restricted.some(field => Object.prototype.hasOwnProperty.call(updates, field))) {
+      throw new Error('Role and identity verification require trusted administrator approval.');
+    }
     if (user?.uid === 'local-agent') {
       setUser(prev => prev ? { ...prev, ...updates, updatedAt: new Date().toISOString() } : prev);
       return;
