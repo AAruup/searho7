@@ -1,0 +1,100 @@
+name: NEXUS manual isolated ECS launch
+on:
+  workflow_dispatch:
+    inputs:
+      launch:
+        description: "Type LAUNCH to run an isolated NEXUS task (anything else = validation only)"
+        required: true
+        default: "CHECK"
+permissions:
+  id-token: write
+  contents: read
+concurrency:
+  group: nexus-isolated-deploy
+  cancel-in-progress: false
+jobs:
+  nexus:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      AWS_REGION: ap-south-1
+      ROLE_ARN: ${{ vars.NEXUS_AWS_ROLE_ARN }}
+      ECR_REPO: ${{ vars.NEXUS_ECR_REPO }}
+      CLUSTER: ${{ vars.NEXUS_ECS_CLUSTER }}
+      TASK_FAMILY: ${{ vars.NEXUS_TASK_FAMILY }}
+      SUBNETS: ${{ vars.NEXUS_SUBNET_IDS }}
+      SECURITY_GROUPS: ${{ vars.NEXUS_SECURITY_GROUP_IDS }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test agent
+        run: |
+          python -m unittest discover -s nexus -p 'test_*.py' -v
+          docker build -t nexus-local-check nexus
+      - name: Validate isolated deployment inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ inputs.launch }}" != "LAUNCH" ]]; then
+            echo "CHECK only: no AWS credentials requested and no deployment performed"
+            exit 0
+          fi
+          for name in ROLE_ARN ECR_REPO CLUSTER TASK_FAMILY SUBNETS SECURITY_GROUPS; do
+            if [[ -z "${!name}" ]]; then echo "::error::Missing repository variable $name"; exit 1; fi
+          done
+          [[ "$TASK_FAMILY" == nexus-* ]] || { echo "::error::Task family must begin nexus-"; exit 1; }
+          [[ "$CLUSTER" == *nexus* ]] || { echo "::error::Cluster must be NEXUS-specific"; exit 1; }
+      - uses: aws-actions/configure-aws-credentials@v4
+        if: ${{ inputs.launch == 'LAUNCH' }}
+        with:
+          role-to-assume: ${{ vars.NEXUS_AWS_ROLE_ARN }}
+          aws-region: ap-south-1
+          role-session-name: nexus-isolated-ci
+      - name: Build and push isolated image
+        if: ${{ inputs.launch == 'LAUNCH' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+          REGISTRY="$ACCOUNT.dkr.ecr.$AWS_REGION.amazonaws.com"
+          aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$REGISTRY"
+          IMAGE="$REGISTRY/$ECR_REPO:${GITHUB_SHA}"
+          docker build -t "$IMAGE" nexus
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+      - name: Run one isolated ECS task and inspect logs
+        if: ${{ inputs.launch == 'LAUNCH' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Pre-provisioned NEXUS-only task definition must already reference the
+          # ECR image and CloudWatch group. We do not modify production services.
+          TASK_DEF=$(aws ecs describe-task-definition --task-definition "$TASK_FAMILY" --query 'taskDefinition.taskDefinitionArn' --output text)
+          aws ecs describe-task-definition --task-definition "$TASK_DEF" > task.json
+          python - <<'PY'
+          import json,os
+          t=json.load(open("task.json"))["taskDefinition"]
+          assert t["family"].startswith("nexus-")
+          assert len(t["containerDefinitions"])==1
+          c=t["containerDefinitions"][0]
+          assert c.get("logConfiguration",{}).get("options",{}).get("awslogs-group","").startswith("/ecs/nexus-")
+          assert c.get("image","").split("/")[-1].split(":")[0] == os.environ["ECR_REPO"]
+          allowed={"family","taskRoleArn","executionRoleArn","networkMode","containerDefinitions","volumes","placementConstraints","requiresCompatibilities","cpu","memory","runtimePlatform","ephemeralStorage"}
+          t={k:v for k,v in t.items() if k in allowed}
+          t["containerDefinitions"][0]["image"]=os.environ["IMAGE"]
+          t["containerDefinitions"][0]["environment"]=[{"name":"NEXUS_MAX_RUNS","value":"1"}]
+          json.dump(t,open("new-task.json","w"))
+          PY
+          REV=$(aws ecs register-task-definition --cli-input-json file://new-task.json --query 'taskDefinition.taskDefinitionArn' --output text)
+          NETWORK=$(python - <<'PY'
+          import json,os
+          print(json.dumps({"awsvpcConfiguration":{"subnets":os.environ["SUBNETS"].split(","),"securityGroups":os.environ["SECURITY_GROUPS"].split(","),"assignPublicIp":"DISABLED"}}))
+          PY
+          )
+          TASK=$(aws ecs run-task --cluster "$CLUSTER" --task-definition "$REV" --launch-type FARGATE --count 1 --network-configuration "$NETWORK" --query 'tasks[0].taskArn' --output text)
+          [[ "$TASK" == arn:* ]] || { echo "::error::ECS task did not start"; exit 1; }
+          echo "Started isolated task $TASK"
+          aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$TASK"
+          aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK" --query 'tasks[0].containers[*].[name,exitCode,reason]' --output table
+          EXIT=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK" --query 'tasks[0].containers[0].exitCode' --output text)
+          [[ "$EXIT" == "0" ]] || { echo "::error::NEXUS exited with $EXIT"; exit 1; }
+          echo "Inspect the dedicated /ecs/nexus-* CloudWatch log group for the JSON health event."
