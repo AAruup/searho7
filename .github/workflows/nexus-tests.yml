@@ -1,0 +1,23 @@
+name: NEXUS isolated tests
+on:
+  pull_request:
+    paths:
+      - 'nexus/**'
+      - '.github/workflows/nexus-tests.yml'
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Unit tests
+        run: python -m unittest discover -s nexus -p 'test_*.py' -v
+      - name: Compile agent
+        run: python -m py_compile nexus/agent.py
+      - name: Build isolated image
+        run: docker build -t nexus-monitor:ci nexus
