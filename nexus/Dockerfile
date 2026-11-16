@@ -1,0 +1,6 @@
+FROM python:3.12-alpine
+WORKDIR /app
+COPY agent.py /app/agent.py
+USER 65534:65534
+ENV PYTHONUNBUFFERED=1 NEXUS_INTERVAL_SECONDS=900 NEXUS_MAX_RUNS=4
+CMD ["python", "/app/agent.py"]
